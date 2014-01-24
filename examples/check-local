@@ -1,0 +1,59 @@
+#!/usr/bin/env python
+"""
+Example plugin to check something with a local command on nagios server
+"""
+
+import os
+
+from foldback.nagios.plugin import NagiosPlugin, NagiosPluginError
+from foldback.nagios.plugin import NAGIOS_STATE_OK, NAGIOS_STATE_WARNING, NAGIOS_STATE_CRITICAL
+
+DESCRIPTION = """Example for local checks
+
+Write here a nice and helpful description of the plugin
+
+"""
+
+class PluginRunner(NagiosPlugin):
+    def __init__(self):
+        NagiosPlugin.__init__(self, description=DESCRIPTION)
+
+        # Add extra arguments to the command - arguments will be available
+        # in check_plugin_status from self.args variable
+        self.add_argument('--path', default=DEFAULT_ALIASES_PATH, help='Path to some file')
+
+    def check_plugin_status(self):
+        """Example callback for nagios plugin
+
+        Replace this callback with your actual test.
+
+        In case of errors, raise NagiosPluginError. This will set state to
+        critical and show the exception message in nagios.
+
+        """
+    	if not os.path.isfile(self.args.path):
+    		self.state = NAGIOS_STATE_CRITICAL
+    		self.message = 'No such file: %s' % self.args.path
+            return
+
+        # This means we run the plugin and by default it is OK unless
+        # errors occur. 
+        #
+        # We also initialize the message shown
+    	self.state = NAGIOS_STATE_OK
+    	self.message = '%s' % self.args.path
+
+        # Do here some tests
+
+        # If the tests did not change state from OK, you can add a summary
+        # or something here like this
+        if self.state == NAGIOS_STATE_OK:
+    	   self.message += ' ALL GOOD!'
+
+# This will:
+# - parse arguments and initialize the plugin
+# - execute check_plugin_status
+# - print plugin's message for nagios
+# - exit with valid nagios return code
+PluginRunner().run()
+
