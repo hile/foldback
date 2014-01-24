@@ -15,9 +15,9 @@ Write here a nice and helpful description of the plugin
 
 """
 
-class PluginRunner(NagiosPlugin):
+class PluginRunner(NagiosSNMPPlugin):
     def __init__(self):
-        NagiosPlugin.__init__(self, description=DESCRIPTION)
+        NagiosSNMPPlugin.__init__(self, description=DESCRIPTION)
 
         # Add extra arguments to the command - arguments will be available
         # in check_plugin_status from self.args variable
@@ -28,8 +28,8 @@ class PluginRunner(NagiosPlugin):
 
     def parse_args(self):
         """Parse arguments
-        
-        Example how to wrap parse_args to do sanity checks for critical 
+
+        Example how to wrap parse_args to do sanity checks for critical
         and warning level checks before plugin execution
 
         """
@@ -64,7 +64,7 @@ class PluginRunner(NagiosPlugin):
         """
 
         # This means we run the plugin and by default it is OK unless
-        # errors occur. 
+        # errors occur.
         #
         # We also initialize the message shown
     	self.state = NAGIOS_STATE_OK
@@ -93,7 +93,7 @@ class PluginRunner(NagiosPlugin):
         elif args.warning and value >= args.warning:
             self.state = NAGIOS_STATE_WARNING
             self.message = 'warning:%s' % value
-        
+
         # If the tests did not change state from OK, you can add a summary
         # or something here like this
         if self.state == NAGIOS_STATE_OK:
