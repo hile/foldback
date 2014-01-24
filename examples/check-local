@@ -37,7 +37,7 @@ class PluginRunner(NagiosPlugin):
             return
 
         # This means we run the plugin and by default it is OK unless
-        # errors occur. 
+        # errors occur.
         #
         # We also initialize the message shown
     	self.state = NAGIOS_STATE_OK
@@ -50,10 +50,5 @@ class PluginRunner(NagiosPlugin):
         if self.state == NAGIOS_STATE_OK:
     	   self.message += ' ALL GOOD!'
 
-# This will:
-# - parse arguments and initialize the plugin
-# - execute check_plugin_status
-# - print plugin's message for nagios
-# - exit with valid nagios return code
 PluginRunner().run()
 

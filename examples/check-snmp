@@ -99,10 +99,5 @@ class PluginRunner(NagiosSNMPPlugin):
         if self.state == NAGIOS_STATE_OK:
     	   self.message += ' value:%s' % value
 
-# This will:
-# - parse arguments and initialize the plugin
-# - execute check_plugin_status
-# - print plugin's message for nagios
-# - exit with valid nagios return code
 PluginRunner().run()
 
