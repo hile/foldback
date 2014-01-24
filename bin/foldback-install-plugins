@@ -1,0 +1,93 @@
+#!/usr/bin/env python
+"""
+Link foldback plugins and configuration files to system directories
+"""
+
+import os
+import glob
+import shutil
+
+from pkg_resources import Requirement, resource_filename
+from systematic.shell import Script
+
+DEFAULT_PREFIX = '/usr'
+
+CONFIGS = resource_filename(Requirement.parse('foldback'), 'data/etc/foldback')
+PLUGINS = resource_filename(Requirement.parse('foldback'), 'data/lib/foldback/plugins')
+
+CONFIGS_TARGET = 'etc/foldback'
+PLUGINS_TARGET = 'lib/foldback/plugins'
+
+DESCRIPTION = """
+This command installs files to following directories under given prefix path:
+
+  %s: configuration files to include in nagios configuration
+  %s: executable nagios plugins configured above
+
+If plugin file exists, the command overwrites existing version.
+
+Configuration files are only created if the file does not already exist. You must
+still include foldback configuration files to nagios configuration yourself, for
+example:
+
+cfg_dir=/opt/foldback/etc/foldback
+
+""" % (CONFIGS_TARGET, PLUGINS_TARGET)
+
+resource_filename(Requirement.parse('foldback'), 'foldback/config/commands.cfg')
+
+script = Script(description=DESCRIPTION)
+script.add_argument('--prefix', default=DEFAULT_PREFIX, help='Prefix for linked files')
+args = script.parse_args()
+
+config_path = os.path.join( args.prefix, CONFIGS_TARGET)
+plugin_path = os.path.join( args.prefix, PLUGINS_TARGET)
+
+if not os.path.isdir(CONFIGS):
+	script.exit(1,'Missing packaged configuration directory: %s' % CONFIGS)
+if not os.path.isdir(PLUGINS):
+	script.exit(1,'Missing packaged plugins directory: %s' % PLUGINS)
+
+for path in (config_path, plugin_path):
+	if not os.path.isdir(path):
+		try:
+			os.makedirs(path)
+		except OSError, emsg:
+			script.exit(1,'Error creating directory %s: %s' % (path, emsg))
+		except IOError, emsg:
+			script.exit(1,'Error creating directory %s: %s' % (path, emsg))
+
+config_variables = {
+	'plugins': plugin_path,
+}
+for name in os.listdir(CONFIGS):
+	src = os.path.join(CONFIGS, name)
+	dst = os.path.join(config_path, name)
+
+	if os.path.isfile(dst):
+		script.message('Skip overwriting existing file: %s' % dst)
+		continue
+
+	data = open(src, 'r').read() % config_variables
+
+	try:
+		script.message('Installing configuration file: %s' % dst)
+		open(dst, 'w').write('%s\n' % data)
+	except OSError, emsg:
+		script.exit(1,emsg)
+	except IOError, emsg:
+		script.exit(1,emsg)
+
+for name in os.listdir(PLUGINS):
+	src = os.path.join(PLUGINS, name)
+	dst = os.path.join(plugin_path, name)
+
+	try:
+		script.message('Installing plugin: %s' % dst)
+		shutil.copyfile(src, dst)
+		os.chmod(dst, int('0755', 8))
+
+	except OSError, emsg:
+		script.exit(1,emsg)
+	except IOError, emsg:
+		script.exit(1,emsg)

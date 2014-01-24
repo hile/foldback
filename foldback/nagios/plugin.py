@@ -7,47 +7,35 @@ import sys
 from seine.snmp.client import SNMPClient, SNMPv1Auth, SNMPv2cAuth, SNMPv3Auth, SNMPError
 from systematic.shell import Script, ScriptError
 
+
+NAGIOS_STATE_OK = 'OK'
+NAGIOS_STATE_WARNING = 'WARNING'
+NAGIOS_STATE_CRITICAL = 'CRITICAL'
+NAGIOS_STATE_UNKNOWN = 'UNKNOWN'
+
 NAGIOS_STATES = {
-	0: 'OK',
-	1: 'WARNING',
-	2: 'CRITICAL',
-	3: 'UNKNOWN'
+	0: NAGIOS_STATE_OK,
+	1: NAGIOS_STATE_WARNING,
+	2: NAGIOS_STATE_CRITICAL,
+	3: NAGIOS_STATE_UNKNOWN,
 }
 NAGIOS_INITIAL_STATE = 3
-
-TEST_MULTILINE_DESCRIPTION = """Testing description
-
-This should go to multiple lines. If not, fix systematic
-
-"""
 
 class NagiosPluginError(Exception):
 	pass
 
 class NagiosPlugin(object):
 	def __init__(self, description=None):
-		self.state = 'UNKNOWN'
+		object.__setattr__(self, 'state_code', NAGIOS_INITIAL_STATE)
 		self.message = 'UNINITIALIZED'
 		self.parser = Script(description=description)
 
 	def __repr__(self):
 		return '%d %s' % (self.state_message, self.message)
 
-	def __getattr__(self, attr):
-		"""Get attribute wrapper
-
-		If state_code is not yet set, return None
-
-		"""
-		if attr == 'state_code' and not hasattr(self, 'state_code'):
-			return NAGIOS_INITIAL_STATE
-
-		raise AttributeError('Invalid nagios plugin attribute: %s' % attr)
-
 	def __setattr__(self, attr, value):
 		if attr == 'state':
 			self.set_state(value)
-
 		object.__setattr__(self, attr, value)
 
 	@property
@@ -63,7 +51,6 @@ class NagiosPlugin(object):
 		Silently refuses to lower plugin state to less critical error. UNKNOWN
 		state can always be overwritten.
 		"""
-		state_code = None
 		try:
 			value = int(value)
 			if value not in NAGIOS_STATES.keys():
@@ -88,7 +75,6 @@ class NagiosPlugin(object):
 			return
 
 		object.__setattr__(self, 'state_code', state_code)
-
 
 	def add_argument(self, *args, **kwargs):
 		"""Add CLI argument
@@ -238,12 +224,6 @@ class NagiosSNMPPlugin(NagiosPlugin):
 		host, splits result and returns second field
 
 		"""
-		self.state = 0
-		self.parser.log.debug('STATE %s' % pl.state_message)
-		self.state = 'WARNING'
-		self.parser.log.debug('STATE %s' % pl.state_message)
-		self.state = 'OK'
-		self.parser.log.debug('STATE %s' % pl.state_message)
 
 		oid = '.1.3.6.1.2.1.1.1.0'
 		try:
@@ -257,7 +237,3 @@ class NagiosSNMPPlugin(NagiosPlugin):
 			self.state = 'OK'
 		except IndexError:
 			raise NagiosPluginError('Error splitting SNMP GET result %s' % res[1])
-
-if __name__ == '__main__':
-	pl = NagiosSNMPPlugin(description=TEST_MULTILINE_DESCRIPTION)
-	pl.run()

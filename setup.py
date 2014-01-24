@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 
-import os,glob
-from setuptools import setup,find_packages
+import sys
+import os
+import glob
+
+from setuptools import setup, find_packages
 
 VERSION='1.0'
-README = open(os.path.join(os.path.dirname(__file__),'README.md'),'r').read()
+README = open(os.path.join(os.path.dirname(__file__), 'README.md'), 'r').read()
 
 setup(
     name = 'foldback',
@@ -18,10 +21,15 @@ setup(
     url = 'http://tuohela.net/packages/foldback',
     zip_safe = False,
     packages = ( 'foldback', 'foldback/nagios' ),
-    scripts = glob.glob('bin/*'),
+    data_files = [
+        ('data/etc/foldback', glob.glob('data/config/*.cfg')),
+        ('data/lib/foldback/plugins', glob.glob('data/plugins/*')),
+    ],
     install_requires = (
         'systematic',
         'seine',
+        'requests',
+        'BeautifulSoup'
     ),
 )
 

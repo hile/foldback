@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 
+import re
+import random
+import requests
+import BeautifulSoup
+
 from foldback.nagios.plugin import NagiosSNMPPlugin, NagiosPluginError
+from foldback.nagios.plugin import NAGIOS_STATE_OK, NAGIOS_STATE_WARNING, NAGIOS_STATE_CRITICAL
 
 DESCRIPTION = """Check for FreeBSD OS updates
 
@@ -9,6 +15,125 @@ updates.freebsd.org mirrors.
 
 """
 
-plugin = NagiosSNMPPlugin(description=DESCRIPTION)
-plugin.run()
+SYSDESCR_OID = '.1.3.6.1.2.1.1.1.0'
+
+RE_RELEASE = re.compile('^(?P<major>\d+)\.(?P<minor>\d+)-(?P<version>[A-Z\d]+).*$')
+SERVER_CHOICES = (
+    'update.freebsd.org',
+    'update2.freebsd.org',
+    'update3.freebsd.org',
+    'update4.freebsd.org',
+    'update5.freebsd.org',
+    'update6.freebsd.org',
+)
+
+
+class FreeBSDReleaseLink(object):
+    def __init__(self, link):
+        self.is_valid = False
+        self.link = link.rstrip('/')
+        m = RE_RELEASE.match(self.link)
+        if m:
+            self.major = int(m.groupdict()['major'])
+            self.minor = int(m.groupdict()['minor'])
+            self.version = m.groupdict()['version']
+            self.is_valid = True
+
+    def __cmp__(self, other):
+        if not isinstance(other, FreeBSDReleaseLink):
+            raise NotImplementedError('Invalid link: %s' % self.link)
+
+        for attr in ('major', 'minor', 'version'):
+            if getattr(self,attr) != getattr(other, attr):
+                return cmp(getattr(self, attr), getattr(other, attr))
+
+        # All fields match
+        return 0
+
+    def __eq__(self, other):
+        return self.__cmp__(other) == 0
+
+    def __ne__(self, other):
+        return self.__cmp__(other) != 0
+
+    def __lt__(self, other):
+        return self.__cmp__(other) < 0
+
+    def __gt__(self, other):
+        return self.__cmp__(other) > 0
+
+    def __lte__(self, other):
+        return self.__cmp__(other) <= 0
+
+    def __gte__(self, other):
+        return self.__cmp__(other) >= 0
+
+    def __repr__(self):
+        return '%s.%s-%s' % (self.major, self.minor, self.version)
+
+    @property
+    def is_prerelease(self):
+        if self.version[:4] == 'BETA':
+            return True
+        if self.version[:2] == 'RC':
+            return True
+        return False
+
+class CheckFreeBSDUpdatesPlugin(NagiosSNMPPlugin):
+    def __init__(self):
+        NagiosSNMPPlugin.__init__(self, description=DESCRIPTION)
+        self.add_argument('--major-releases', action='store_true', help='Upgrade to new major release')
+
+    def check_plugin_status(self):
+        def fetch_available_versions():
+            url = 'http://%s/' % random.choice(SERVER_CHOICES)
+            res = requests.get(url)
+            page = BeautifulSoup.BeautifulSoup(markup=res.content)
+
+            versions = []
+            for link in page.findAll('a'):
+                version = FreeBSDReleaseLink(link.get('href'))
+                if version.is_valid:
+                    versions.append(version)
+
+            return sorted(versions)
+
+        try:
+            res = self.client.get(SYSDESCR_OID)
+        except SNMPError, emsg:
+            raise NagiosPluginError('ERROR reading OID %s: %s' % (SYSDESCR_OID, emsg))
+
+        try:
+            value = '%s' % res[1]
+            current = FreeBSDReleaseLink(value.split()[2])
+        except IndexError:
+            raise NagiosPluginError('Error splitting SNMP GET result %s' % res[1])
+
+        if not current.is_valid:
+            self.state = 'CRITICAL'
+            self.message += 'Unsupported version string: %s\n' % current.link
+            self.exit()
+
+        self.state = NAGIOS_STATE_OK
+        self.message = 'FreeBSD %s' % (current)
+
+        versions = fetch_available_versions()
+        for v in reversed(versions):
+            # Only check new major releases if requested
+            if not self.args.major_releases and current.major != v.major:
+                continue
+
+            # Don't try to upgrade from RELEASE to BETA or RC
+            if not current.is_prerelease and v.is_prerelease:
+                continue
+
+            if current < v:
+                self.message += ': update available: %s' % v
+                self.state = NAGIOS_STATE_WARNING
+                break
+
+        if self.state == NAGIOS_STATE_OK:
+            self.message += ': up to date'
+
+CheckFreeBSDUpdatesPlugin().run()
 

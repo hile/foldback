@@ -1,0 +1,101 @@
+#!/usr/bin/env python
+
+
+import os
+
+from foldback.nagios.plugin import NagiosPlugin, NagiosPluginError
+from foldback.nagios.plugin import NAGIOS_STATE_OK, NAGIOS_STATE_WARNING, NAGIOS_STATE_CRITICAL
+
+DEFAULT_ALIASES_PATH = '/etc/aliases'
+DESCRIPTION = """Check /etc/aliases
+
+Check consistency of local /etc/aliases file.
+
+Extra arguments:
+  --path: alternative path instead of /etc/aliases
+  --required: require these aliases to exist, regardless of value
+  --check-alias: require alias existence and match target emails
+
+Example of --check-alias:
+  --check-alias=postmaster=root,mailadmins@foo.com
+
+Order of addresses in --check-alias email list does not matter.
+
+"""
+
+
+class CheckMailAliasesPlugin(NagiosPlugin):
+    def __init__(self):
+        NagiosPlugin.__init__(self, description=DESCRIPTION)
+        self.add_argument('--path', default=DEFAULT_ALIASES_PATH, help='Path to aliases file')
+        self.add_argument('--required', action='append', help='Required aliases')
+        self.add_argument('--check-alias', action='append', help='Check alias value')
+
+    def load_aliases(self):
+        aliases = {}
+
+        for l in [l.strip() for l in open(self.args.path, 'r').readlines()]:
+            if l=='' or l.startswith('#'):
+                continue
+            try:
+                alias, emails = [x.strip() for x in l.split(':', 1)]
+                emails = sorted(x.strip() for x in emails.split(','))
+            except ValueError:
+                raise NagiosPluginError('Error parsing line %s' % l)
+
+            if alias in aliases.keys():
+                self.state = NAGIOS_STATE_WARNING
+                self.message += ' duplicate:%s' % alias
+
+            aliases[alias] = emails
+
+    	return aliases
+
+    def check_plugin_status(self):
+    	if not os.path.isfile(self.args.path):
+    		self.state = NAGIOS_STATE_CRITICAL
+    		self.message = 'No such file: %s' % self.args.path
+
+    	self.state = NAGIOS_STATE_OK
+    	self.message = '%s' % self.args.path
+
+    	aliases = self.load_aliases()
+
+        if self.args.required:
+            required = []
+            for x in self.args.required:
+                for alias in x.split(','):
+                    if alias not in required:
+                        required.append(alias)
+
+            required.sort()
+            for alias in required:
+                if alias not in aliases.keys():
+                    self.state = NAGIOS_STATE_CRITICAL
+                    self.message += ' missing:%s' % alias
+
+        if self.args.check_alias:
+            checked = {}
+            for x in self.args.check_alias:
+                try:
+                    alias,emails = x.split(':',1)
+                    emails = [x.strip() for x in emails.split(',')]
+                except ValueError:
+                    raise NagiosPluginError('Error parsing --check-value %s' % x)
+                checked[alias] = sorted(emails)
+
+            for alias, emails in checked.items():
+                if alias not in aliases.keys():
+                    self.state = NAGIOS_STATE_CRITICAL
+                    self.message += ' missing:%s' % alias
+
+                if aliases[alias] != emails:
+                    self.state = NAGIOS_STATE_CRITICAL
+                    self.message += ' invalid:%s:%s' % (alias,','.join(aliases[alias]))
+
+
+        if self.state == NAGIOS_STATE_OK:
+    	   self.message += ' (total %d mail aliases)' % len(aliases.keys())
+
+
+CheckMailAliasesPlugin().run()
