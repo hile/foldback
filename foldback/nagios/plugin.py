@@ -217,6 +217,8 @@ class NagiosSNMPPlugin(NagiosPlugin):
 
 		self.client = SNMPClient(address=args.host, auth=auth)
 
+		return args
+
 	def check_plugin_status_example(self):
 		"""Example SNMP GET plugin test
 
