@@ -25,7 +25,7 @@ class NFSExport(object):
 	def __repr__(self):
 		return '%s:%s' % (self.host, self.path)
 
-class CheckNFSExportsPlugin(NagiosPlugin):
+class PluginRunner(NagiosPlugin):
     def __init__(self):
         NagiosPlugin.__init__(self, description=DESCRIPTION)
         self.add_argument('-3','--nfsv3', action='store_true', help='Use NFSv3')
@@ -77,4 +77,4 @@ class CheckNFSExportsPlugin(NagiosPlugin):
 
     	self.message = self.message.lstrip()
 
-CheckNFSExportsPlugin().run()
+PluginRunner().run()

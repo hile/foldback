@@ -24,7 +24,7 @@ Order of addresses in --check-alias email list does not matter.
 """
 
 
-class CheckMailAliasesPlugin(NagiosPlugin):
+class PluginRunner(NagiosPlugin):
     def __init__(self):
         NagiosPlugin.__init__(self, description=DESCRIPTION)
         self.add_argument('--path', default=DEFAULT_ALIASES_PATH, help='Path to aliases file')
@@ -98,4 +98,4 @@ class CheckMailAliasesPlugin(NagiosPlugin):
     	   self.message += ' (total %d mail aliases)' % len(aliases.keys())
 
 
-CheckMailAliasesPlugin().run()
+PluginRunner().run()

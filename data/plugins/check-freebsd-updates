@@ -79,7 +79,7 @@ class FreeBSDReleaseLink(object):
             return True
         return False
 
-class CheckFreeBSDUpdatesPlugin(NagiosSNMPPlugin):
+class PluginRunner(NagiosSNMPPlugin):
     def __init__(self):
         NagiosSNMPPlugin.__init__(self, description=DESCRIPTION)
         self.add_argument('--major-releases', action='store_true', help='Upgrade to new major release')
@@ -135,5 +135,5 @@ class CheckFreeBSDUpdatesPlugin(NagiosSNMPPlugin):
         if self.state == NAGIOS_STATE_OK:
             self.message += ': up to date'
 
-CheckFreeBSDUpdatesPlugin().run()
+PluginRunner().run()
 
