@@ -1,0 +1,80 @@
+#!/usr/bin/env python
+
+
+import os
+
+from subprocess import Popen, PIPE
+
+from foldback.nagios.plugin import NagiosPlugin, NagiosPluginError
+from foldback.nagios.plugin import NAGIOS_STATE_OK, NAGIOS_STATE_WARNING, NAGIOS_STATE_CRITICAL
+
+DESCRIPTION = """
+Check NFS exports from NFS server remotely with showmount.
+
+Please note this command may hang for quite long, if NFS server is not running
+or is unreachable.
+
+"""
+
+class NFSExport(object):
+	def __init__(self, host, path, flags):
+		self.host = host
+		self.path = path
+		self.flags = flags
+
+	def __repr__(self):
+		return '%s:%s' % (self.host, self.path)
+
+class CheckNFSExportsPlugin(NagiosPlugin):
+    def __init__(self):
+        NagiosPlugin.__init__(self, description=DESCRIPTION)
+        self.add_argument('-3','--nfsv3', action='store_true', help='Use NFSv3')
+        self.add_argument('-6','--ipv6', action='store_true', help='Use IPv6')
+        self.add_argument('-H','--host', required=True, help='Server to check')
+        self.add_argument('required', nargs='*', help='Exports required to be available')
+
+    def parse_showmount_exports(self, input):
+    	exports = []
+    	for line in [l.strip() for l in input.split('\n')[1:]]:
+    		if line == '' or line.startswith('#'):
+    			continue
+    		mountpoint, flags = [x.strip() for x in line.split(None, 1)]
+    		exports.append(NFSExport(self.args.host, mountpoint, flags))
+    	return exports
+
+    def check_plugin_status(self):
+    	self.state = NAGIOS_STATE_OK
+    	self.message = ''
+
+    	cmd = ['showmount', '-e']
+    	if self.args.nfsv3:
+    		cmd.append('-3')
+    	if self.args.ipv6:
+    		cmd.append('-6')
+    	cmd.append(self.args.host)
+    	p = Popen(cmd,stdin=PIPE, stdout=PIPE, stderr=PIPE)
+    	(stdout, stderr) = p.communicate()
+    	if p.returncode != 0:
+    		self.state = NAGIOS_STATE_CRITICAL
+    		self.message += 'ERROR checking NFS share status'
+
+    	exports = self.parse_showmount_exports(stdout)
+
+    	if self.args.required:
+    		required = []
+    		for x in self.args.required:
+    			for share in x.split(','):
+    				if share not in required:
+    					required.append(share)
+
+    		for share in required:
+    			if not [x for x in exports if x.path==share]:
+    				self.state = NAGIOS_STATE_CRITICAL
+    				self.message += ' missing:%s' % share
+
+    	if self.state == NAGIOS_STATE_OK:
+    		self.message += ' total %d exported filesystems' % len(exports)
+
+    	self.message = self.message.lstrip()
+
+CheckNFSExportsPlugin().run()
