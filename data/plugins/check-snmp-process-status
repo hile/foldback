@@ -1,0 +1,105 @@
+#!/usr/bin/env python
+"""
+Check with SNMP that process matching name and arguments is running
+
+"""
+
+import os
+
+from foldback.nagios.plugin import NagiosSNMPPlugin, NagiosPluginError
+from foldback.nagios.plugin import NAGIOS_STATE_OK, NAGIOS_STATE_WARNING, NAGIOS_STATE_CRITICAL
+
+DESCRIPTION = """Example for SNMP checks
+
+Write here a nice and helpful description of the plugin
+
+"""
+
+PROCESS_NAMES_OID = '.1.3.6.1.2.1.25.4.2.1.2'
+PROCESS_ARGS_OID = '.1.3.6.1.2.1.25.4.2.1.5'
+
+class PluginRunner(NagiosSNMPPlugin):
+    def __init__(self):
+        NagiosSNMPPlugin.__init__(self, description=DESCRIPTION)
+
+        # Add extra arguments to the command - arguments will be available
+        # in check_plugin_status from self.args variable
+        self.add_argument('--count', type=int, help='Number of processes to expect')
+        self.add_argument('--name', required=True, help='Process name')
+        self.add_argument('--parameters', required=True, help='Process arguments')
+
+    def parse_args(self, *args, **kwargs):
+        args = NagiosSNMPPlugin.parse_args(self, *args, **kwargs)
+
+        if self.args.count is not None and self.args.count < 1:
+            raise NagiosPluginError('Invalid process count value: %s' % args.count)
+
+        return args
+
+    def check_plugin_status(self):
+        """Check the process is running with provided arguments
+
+        Optionally make sure correct number of matching processes is running
+
+        Count specified:
+            Status is OK if processes are running and count matches given value
+            Status is WARNING if processes are running but count does not match given value
+            Status is CRITICAL if process is not running
+
+        No count specified:
+            Status is OK if process is running
+            Status is CRITICAL if process is not running
+
+        """
+
+    	self.state = NAGIOS_STATE_OK
+
+        self.client.fetch_trees([PROCESS_NAMES_OID, PROCESS_ARGS_OID])
+
+        found = 0
+        matching_indexes = []
+        for res in self.client.trees[self.client.tree_key(PROCESS_NAMES_OID)].items():
+            name = res[1]
+            if name != self.args.name:
+                continue
+            oid = '%s' % res[0]
+            matching_indexes.append(oid.split('.')[-1])
+
+        for res in self.client.trees[self.client.tree_key(PROCESS_ARGS_OID)].items():
+            oid = '%s' % res[0]
+            if oid.split('.')[-1] not in matching_indexes:
+                continue
+
+            parameters = res[1]
+            if parameters == self.args.parameters:
+                found += 1
+
+        if self.args.count is None:
+            if found > 0:
+                self.message = 'RUNNING: %s %s' % (
+                    self.args.name, self.args.parameters
+                )
+            else:
+                self.state = NAGIOS_STATE_CRITICAL
+                self.message = 'NOT RUNNING: %s %s' % (
+                    self.args.name, self.args.parameters
+                )
+        else:
+            if found > 0:
+                if found == self.args.count:
+                    self.message = 'RUNNING %d instances: %s %s' % (
+                        found, self.args.name, self.args.parameters
+                    )
+                else:
+                    self.state = NAGIOS_STATE_WARNING
+                    self.message = 'RUNNING %d/%d instances: %s %s' % (
+                        found, self.args.count, self.args.name, self.args.parameters
+                    )
+            else:
+                self.state = NAGIOS_STATE_CRITICAL
+                self.message = 'NOT RUNNING: %s %s' % (
+                    self.args.name, self.args.parameters
+                )
+
+PluginRunner().run()
+
