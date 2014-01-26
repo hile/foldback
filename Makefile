@@ -25,6 +25,7 @@ ifdef PREFIX
 install_modules: build
 	python setup.py --no-user-cfg install --prefix=${PREFIX}
 install: install_modules
+	@foldback-install-plugins --prefix=${PREFIX}
 else
 install_modules: build
 	python setup.py install
