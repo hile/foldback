@@ -1,0 +1,78 @@
+#!/usr/bin/env python
+
+import os
+
+from seine.address import IPv4Address, IPv6Address
+from seine.dns.resolver import resolve_records
+
+from foldback.nagios.plugin import NagiosPlugin, NagiosPluginError
+from foldback.nagios.plugin import NAGIOS_STATE_OK, NAGIOS_STATE_WARNING, NAGIOS_STATE_CRITICAL
+
+DESCRIPTION = """
+Check DNS domain server detais
+
+"""
+
+DEFAULT_RR_TYPE = 'A'
+
+class PluginRunner(NagiosPlugin):
+    def __init__(self):
+        NagiosPlugin.__init__(self, description=DESCRIPTION)
+        self.add_argument('-s', '--server', required=True, help='DNS server to query')
+        self.add_argument('-H', '--hostname', required=True, help='Hostname to query')
+        self.add_argument('-e', '--expected', help='Expected response RR value')
+        self.add_argument('-r', '--record-type', help='DNS RR type to query')
+
+    def format_query(self, query, rrtype):
+    	try:
+    		address = IPv4Address(query)
+    		if rrtype is not None and rrtype != 'PTR':
+    			raise NagiosPluginError('Mismatch in query arguments')
+
+    		return 'PTR', address.dns_reverse_ptr
+
+    	except ValueError:
+    		pass
+
+    	try:
+    		address = IPv6Address(query)
+    		if rrtype is not None and rrtype != 'PTR':
+    			raise NagiosPluginError('Mismatch in query arguments')
+
+    		return 'PTR', address.revnibbles_arpa
+
+    	except ValueError:
+    		pass
+
+    	if rrtype is None:
+    		return DEFAULT_RR_TYPE, query
+    	else:
+    		return rrtype, query
+
+    def check_plugin_status(self):
+    	rrtype, query = self.format_query(self.args.hostname, self.args.record_type)
+    	response = resolve_records(query, self.args.server, rrtype)
+
+    	if response['results']:
+    		self.state = NAGIOS_STATE_OK
+
+    		if self.args.expected:
+    			found = False
+
+    		else:
+    			self.message += '%s %s for %s found' % (self.args.server, rrtype, query)
+    			for r in response['results']:
+    				if 'strings' in r.keys():
+    					self.message += '\n%s %s' % (rrtype, ' '.join(r['strings']))
+
+    				for k in ('target', 'address',):
+    					if not k in r.keys():
+    						continue
+    					self.message += '\n%s %s' % (rrtype, r[k])
+
+    	else:
+    		self.state = NAGIOS_STATE_CRITICAL
+    		self.message += '%s %s for %s not found' % (self.args.server, rrtype, query)
+
+
+PluginRunner().run()

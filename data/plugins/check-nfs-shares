@@ -1,12 +1,16 @@
 #!/usr/bin/env python
 
-
 import os
 
 from subprocess import Popen, PIPE
 
 from foldback.nagios.plugin import NagiosPlugin, NagiosPluginError
 from foldback.nagios.plugin import NAGIOS_STATE_OK, NAGIOS_STATE_WARNING, NAGIOS_STATE_CRITICAL
+
+SHOWMOUNT_PATHS = (
+    '/usr/bin/showmount',
+    '/sbin/showmount',
+)
 
 DESCRIPTION = """
 Check NFS exports from NFS server remotely with showmount.
@@ -33,6 +37,13 @@ class PluginRunner(NagiosPlugin):
         self.add_argument('-H','--host', required=True, help='Server to check')
         self.add_argument('required', nargs='*', help='Exports required to be available')
 
+    def find_showmount_command(self):
+        for path in SHOWMOUNT_PATHS:
+            if os.path.isfile(path) and os.access(path, os.X_OK):
+                return path
+
+        raise NagiosPluginError('Command not found: %s' % showmount)
+
     def parse_showmount_exports(self, input):
     	exports = []
     	for line in [l.strip() for l in input.split('\n')[1:]]:
@@ -46,7 +57,8 @@ class PluginRunner(NagiosPlugin):
     	self.state = NAGIOS_STATE_OK
     	self.message = ''
 
-    	cmd = ['showmount', '-e']
+        showmount = self.find_showmount_command()
+    	cmd = [showmount, '-e']
     	if self.args.nfsv3:
     		cmd.append('-3')
     	if self.args.ipv6:
@@ -75,6 +87,9 @@ class PluginRunner(NagiosPlugin):
     	if self.state == NAGIOS_STATE_OK:
     		self.message += ' total %d exported filesystems' % len(exports)
 
-    	self.message = self.message.lstrip()
+        for e in exports:
+            self.message += '\n%s: %s' % (e.path, e.flags)
+
+        self.message = self.message.strip()
 
 PluginRunner().run()
