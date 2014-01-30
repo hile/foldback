@@ -1,0 +1,73 @@
+#!/usr/bin/env python
+"""
+Check printer supply levels
+"""
+
+import os
+
+from seine.snmp.devices.printers.hp import LaserjetSNMPControl
+from foldback.nagios.plugin import NagiosSNMPPlugin, NagiosPluginError
+from foldback.nagios.plugin import NAGIOS_STATE_OK, NAGIOS_STATE_WARNING, NAGIOS_STATE_CRITICAL
+
+DESCRIPTION = """Check printer supply levels with SNMP
+
+Check printer supply levels (colors/drums) with SNMP. This has been tested with
+HP printers, but should work fine with any printer with PRINTER-MIB support.
+
+Note: many printers support query with SNMP v1 and community 'public' even when
+this is not advertised in the manuals.
+
+"""
+
+class PluginRunner(NagiosSNMPPlugin):
+    def __init__(self):
+        NagiosSNMPPlugin.__init__(self, description=DESCRIPTION)
+
+        self.add_argument('-w', '--warning', type=int, help='Warning percentage color level')
+        self.add_argument('-c', '--critical', type=int, help='Critical percentage color level')
+
+    def parse_args(self):
+        """Parse arguments
+
+        Example how to wrap parse_args to do sanity checks for critical
+        and warning level checks before plugin execution
+
+        """
+        args = NagiosSNMPPlugin.parse_args(self)
+
+        if self.args.warning is not None and (self.args.warning <= 0 or self.args.warning >= 100):
+            raise NagiosPluginError('Invalid warning percentage level')
+
+        if self.args.critical is not None and (self.args.critical <= 0 or self.args.critical >= 100):
+            raise NagiosPluginError('Invalid critical percentage level')
+
+        if self.args.warning is not None and self.args.critical is not None:
+            if self.args.warning <= self.args.critical:
+                raise NagiosPluginError('Warning percentage level must be larger than critical level')
+
+        return args
+
+    def check_plugin_status(self):
+        """Check printer supply levels
+
+        Supply levels are checked against
+
+        """
+
+        self.state = NAGIOS_STATE_OK
+        self.message = ''
+        tool = LaserjetSNMPControl(self.client)
+
+        levels = tool.supply_level_details()
+
+        for item, details in levels.items():
+            if self.args.critical and details['percent'] <= self.args.critical:
+                self.state = NAGIOS_STATE_CRITICAL
+
+            elif self.args.warning and details['percent'] <= self.args.warning:
+                self.state = NAGIOS_STATE_WARNING
+
+            self.message += ' %s:%s%%' % (item, details['percent'])
+
+PluginRunner().run()
+
