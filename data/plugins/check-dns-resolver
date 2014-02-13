@@ -9,7 +9,7 @@ from foldback.nagios.plugin import NagiosPlugin, NagiosPluginError
 from foldback.nagios.plugin import NAGIOS_STATE_OK, NAGIOS_STATE_WARNING, NAGIOS_STATE_CRITICAL
 
 DESCRIPTION = """
-Check DNS domain server detais
+Check DNS nameserver resolves a RR to expected result
 
 """
 

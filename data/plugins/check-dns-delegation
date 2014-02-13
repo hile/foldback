@@ -1,0 +1,62 @@
+#!/usr/bin/env python
+
+import os
+
+from seine.address import IPv4Address, IPv6Address
+from seine.dns.resolver import resolve_records
+from seine.dns.authservers import AuthorizedZoneServers, DNSError
+
+from foldback.nagios.plugin import NagiosPlugin, NagiosPluginError
+from foldback.nagios.plugin import NAGIOS_STATE_OK, NAGIOS_STATE_WARNING, NAGIOS_STATE_CRITICAL
+
+DESCRIPTION = """
+Check DNS domain nameservers and delegations
+
+"""
+
+DEFAULT_RR_TYPE = 'A'
+
+class PluginRunner(NagiosPlugin):
+    def __init__(self):
+        NagiosPlugin.__init__(self, description=DESCRIPTION)
+        self.add_argument('-d', '--domain', required=True, help='DNS domain to check')
+        self.add_argument('-n', '--nameservers', help='Expected nameservers')
+        self.add_argument('-s', '--check-soa', action='store_true', help='Compare SOA from each server')
+
+    def check_plugin_status(self):
+        if self.args.nameservers:
+            self.args.nameservers = self.args.nameservers.split(',')
+
+        self.state = NAGIOS_STATE_OK
+        self.message = '%s' % self.args.domain
+
+        try:
+            auth_servers = AuthorizedZoneServers(self.args.domain)
+            auth_servers.update_delegations()
+        except DNSError, emsg:
+            self.state = NAGIOS_STATE_CRITICAL
+            self.message += ' %s' % emsg
+
+        if self.args.check_soa:
+            try:
+                auth_servers.validate_SOA()
+            except DNSError, emsg:
+                self.state = NAGIOS_STATE_CRITICAL
+                self.message += ' SOA ERROR: %s' % emsg
+
+        try:
+            auth_servers.validate_NS()
+        except DNSError, emsg:
+            self.state = NAGIOS_STATE_CRITICAL
+            self.message += ' DELEGATED NS CONFLICT: %s' % emsg
+
+        delegated_ns = sorted(auth_servers.ipv4_delegation.delegated_servers)
+        if self.args.nameservers:
+            if delegated_ns != sorted(self.args.nameservers):
+                self.state = NAGIOS_STATE_CRITICAL
+                self.message += ' UNEXPECTED NS DELEGATION: %s' % ','.join(delegated_ns)
+
+        if self.state == NAGIOS_STATE_OK:
+            self.message += ' NS %s' % ','.join(delegated_ns)
+
+PluginRunner().run()
