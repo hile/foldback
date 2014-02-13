@@ -6,7 +6,7 @@ import glob
 
 from setuptools import setup, find_packages
 
-VERSION='1.0'
+VERSION='1.1'
 README = open(os.path.join(os.path.dirname(__file__), 'README.md'), 'r').read()
 
 setup(
@@ -27,8 +27,8 @@ setup(
         ('data/lib/foldback/plugins', glob.glob('data/plugins/*')),
     ],
     install_requires = (
-        'systematic',
-        'seine',
+        'systematic>=4.0.2',
+        'seine>=2.2',
         'requests',
         'BeautifulSoup'
     ),
