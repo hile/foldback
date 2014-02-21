@@ -1,0 +1,52 @@
+#!/usr/bin/env python
+
+import os
+from datetime import datetime, date, timedelta
+
+from seine.whois.client import WhoisClient, WhoisError
+
+from foldback.nagios.plugin import NagiosPlugin, NagiosPluginError
+from foldback.nagios.plugin import NAGIOS_STATE_OK, NAGIOS_STATE_WARNING, NAGIOS_STATE_CRITICAL
+
+DESCRIPTION = """
+Check DNS domain expiration from whois
+
+"""
+
+class PluginRunner(NagiosPlugin):
+    def __init__(self):
+        NagiosPlugin.__init__(self, description=DESCRIPTION)
+        self.add_argument('-d', '--domain', required=True, help='DNS domain to check')
+        self.add_argument('-w', '--warning', type=int, help='Warning days before expiration')
+        self.add_argument('-c', '--critical', type=int, help='Critical days before expiration')
+
+    def check_plugin_status(self):
+        client = WhoisClient()
+
+        self.state = NAGIOS_STATE_OK
+        self.message = '%s' % self.args.domain
+
+        try:
+            data = client.query(self.args.domain)
+        except WhoisError, emsg:
+            self.state = NAGIOS_STATE_CRITICAL
+            self.message += ' %s' % emsg
+
+        if isinstance(data.expires, date):
+            today = datetime.now().date()
+            expire_days = (data.expires - today).days
+
+            if self.args.critical and expire_days <= self.args.critical:
+                self.state = NAGIOS_STATE_CRITICAL
+
+            elif self.args.warning and expire_days <= self.args.warning:
+                self.state = NAGIOS_STATE_WARNING
+
+            self.message += ' EXPIRES in %d days' % expire_days
+
+        else:
+            self.state = NAGIOS_STATE_CRITICAL
+            self.message += ' NO EXPIRATION DATA AVAILABLE'
+
+
+PluginRunner().run()
