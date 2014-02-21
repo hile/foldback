@@ -31,6 +31,7 @@ class PluginRunner(NagiosPlugin):
         except WhoisError, emsg:
             self.state = NAGIOS_STATE_CRITICAL
             self.message += ' %s' % emsg
+            return
 
         if isinstance(data.expires, date):
             today = datetime.now().date()
