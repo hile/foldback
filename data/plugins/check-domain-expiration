@@ -13,10 +13,26 @@ Check DNS domain expiration from whois
 
 """
 
+WHOIS_REPORT_FIELDS = (
+    'created',
+    'modified',
+    'expires',
+    'registrar',
+    'whois_servers',
+    'nameservers',
+    'referrar_url',
+    'registrant_address',
+    'admin_contact',
+    'admin_address',
+    'technical_contact',
+    'technical_address',
+)
+
 class PluginRunner(NagiosPlugin):
     def __init__(self):
         NagiosPlugin.__init__(self, description=DESCRIPTION)
         self.add_argument('-d', '--domain', required=True, help='DNS domain to check')
+        self.add_argument('-n', '--nameservers', help='Check nameservers in whois data')
         self.add_argument('-w', '--warning', type=int, help='Warning days before expiration')
         self.add_argument('-c', '--critical', type=int, help='Critical days before expiration')
 
@@ -49,5 +65,26 @@ class PluginRunner(NagiosPlugin):
             self.state = NAGIOS_STATE_CRITICAL
             self.message += ' NO EXPIRATION DATA AVAILABLE'
 
+        if self.args.nameservers:
+            nameservers = sorted(x.lower() for x in self.args.nameservers.split(','))
+            if not data.nameservers:
+                self.state = NAGIOS_STATE_CRITICAL
+                self.message += ', NO NAMESERVERS IN WHOIS RESPONSE'
+
+            elif data.nameservers != nameservers:
+                self.state = NAGIOS_STATE_CRITICAL
+                self.message += ', UNEXPECTED NAMESERVERS: %s' % ','.join(nameservers)
+
+            else:
+                self.message += ', NAMESERVERS OK'
+
+        for field in WHOIS_REPORT_FIELDS:
+            if not field in data:
+                continue
+
+            value = data[field]
+            if isinstance(value, list):
+                value = ','.join(value)
+            self.message += '\n%s: %s' % (field, value)
 
 PluginRunner().run()
