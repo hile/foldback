@@ -1,0 +1,277 @@
+#!/usr/bin/env python
+
+import os
+import requests
+import json
+import BeautifulSoup
+from datetime import datetime, date, timedelta
+
+from foldback.nagios.plugin import NagiosPlugin, NagiosPluginError
+from foldback.nagios.plugin import NAGIOS_STATE_OK, NAGIOS_STATE_WARNING, NAGIOS_STATE_CRITICAL
+
+DESCRIPTION = """Check firmware updates for Ubnt products
+
+"""
+
+PRODUCT_ROOT_URL = 'http://www.ubnt.com/'
+URL = PRODUCT_ROOT_URL + 'download'
+
+VERSION_FIELDS_ORDER = (
+    'family',
+    'product',
+    'date',
+    'ver',
+    'build',
+    'size',
+    'md5',
+    'url',
+    'changelog',
+)
+
+SDK_FIELDS_ORDER = (
+    'arch',
+    'product',
+    'ver',
+    'date',
+    'md5',
+    'size',
+    'build',
+    'version',
+    'url',
+)
+
+
+class SDKVersion(dict):
+    def __init__(self, data):
+        self.update(data)
+
+        try:
+            self['date'] = datetime.strptime(' '.join([self['date'], self['time']]), '%y%m%d %H%M')
+            del(self['time'])
+        except ValueError:
+            self['date'] = datetime.now()
+            del(self['time'])
+
+        try:
+            self['url'] = '%s%s' % (PRODUCT_ROOT_URL, self['file'].lstrip('./'))
+        except ValueError:
+            self['url'] = 'unknown'
+
+        for field in ('size',):
+            try:
+                self[field] = int(field)
+            except ValueError:
+                pass
+
+    def keys(self):
+        return SDK_FIELDS_ORDER
+
+    def items(self):
+        return [(k, self[k]) for k in self.keys()]
+
+    def values(self):
+        return [self[k] for k in self.keys()]
+
+
+class Version(dict):
+    def __init__(self, product, version, data):
+        self.entry = product
+        self.version = version
+        self.update(data)
+
+        self['family'] = product.family
+        self['product'] = product.product
+
+        self['etcversion'] = '.'.join([
+            self.product.split()[0],
+            os.path.splitext(self['file'].split('/')[-1])[0],
+            self['date'],
+            self['time']
+        ])
+
+        try:
+            self['date'] = datetime.strptime(' '.join([self['date'], self['time']]), '%y%m%d %H%M')
+            del(self['time'])
+        except ValueError:
+            self['date'] = datetime.now()
+            del(self['time'])
+
+        try:
+            self['url'] = '%s%s' % (PRODUCT_ROOT_URL, self['file'].lstrip('./'))
+        except ValueError:
+            self['url'] = 'unknown'
+
+        if 'sdk' in data:
+            self['sdk'] = SDKVersion(data['sdk'])
+        else:
+            self['sdk'] = {}
+
+        for field in ('size', 'build',):
+            try:
+                self[field] = int(self[field])
+            except ValueError:
+                pass
+
+    def __repr__(self):
+        return ''
+        return '%s %s %s' % (self.family, self.product, self.version)
+
+    def __getattr__(self, attr):
+        try:
+            return self[attr]
+        except KeyError:
+            raise AttributeError
+
+    def keys(self):
+        return VERSION_FIELDS_ORDER
+
+    def items(self):
+        return [(k, self[k]) for k in self.keys()]
+
+    def values(self):
+        return [self[k] for k in self.keys()]
+
+
+class UbntProduct(dict):
+    def __init__(self, family, product, releases):
+        self.family = family
+        self.product = product
+        for rel in releases:
+            version = rel['ver']
+            self[version] = Version(self, version, rel)
+
+    def __repr__(self):
+        return '%s %s' % (self.family, self.product)
+
+    @property
+    def latest(self):
+        return self[sorted(self.keys())[-1]]
+
+
+class UbntProductDownloads(list):
+    def load(self, path=None):
+        if path is not None:
+            bs = BeautifulSoup.BeautifulSoup(markup=open(path, 'r').read())
+        else:
+            res = requests.get(URL)
+            if res.status_code != 200:
+                raise ValueError
+            bs = BeautifulSoup.BeautifulSoup(markup=res.content)
+
+        scripts = bs.findAll('script')
+        for script in scripts:
+            try:
+                key, data = [x.strip() for x in script.text.split('=', 1)]
+                if key[:4] == 'var ' and key[4:].strip() != 'names':
+                    continue
+            except ValueError, emsg:
+                continue
+
+            try:
+                key = key[4:].strip()
+                data = json.loads('{%s}' % data.split('{', 1)[1].rsplit('}', 1)[0],)
+                for family in sorted(data.keys()):
+                    for product in data[family]:
+                        self.append(UbntProduct(family, product, data[family][product]))
+
+            except ValueError, emsg:
+                print emsg
+                pass
+
+    def match(self, product):
+        product = product.lower()
+        try:
+            products = [x for x in self if x.product.lower() == product]
+        except ValueError:
+            return None
+        return products[0]
+
+
+class UbntDevice(object):
+    def __init__(self, host, username, password, verify=True):
+        self.host = host
+        self.username = username
+        self.password = password
+
+        self.headers = {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        }
+        self.sysinfo = None
+
+        self.session = requests.session()
+        self.verify = verify
+        self.logged_in = False
+
+    def login(self):
+        url = 'https://%s/' % self.host
+        try:
+            res = self.session.get(url, headers=self.headers, verify=self.verify)
+            credentials = { 'username': self.username, 'password': self.password, }
+            res = self.session.post(url, data=credentials, headers=self.headers, verify=self.verify)
+            if res.status_code not in [200, 302]:
+                raise NagiosPluginError('Error logging in to %s: returns %s' % (self.host, res.status_code))
+        except requests.exceptions.SSLError, emsg:
+            raise NagiosPluginError('Error logging in to %s: %s' % (self.host, emsg))
+
+        self.logged_in = True
+
+    def get_sysinfo(self):
+        if not self.logged_in:
+            self.login()
+
+        url = 'https://%s/api/edge/data.json?data=sys_info' % self.host
+        res = self.session.get(url, headers=self.headers)
+        if res.status_code != 200:
+            raise NagiosPluginError('Error fetching %s: returns %s' % (url, res.status_code))
+
+        self.sysinfo = json.loads(res.content)
+
+    @property
+    def os_version(self):
+        if self.sysinfo is None:
+            self.get_sysinfo()
+
+        try:
+            return self.sysinfo['output']['sw_ver']
+        except:
+            return None
+
+
+class PluginRunner(NagiosPlugin):
+    def __init__(self):
+        NagiosPlugin.__init__(self, description=DESCRIPTION)
+        self.add_argument('-H', '--host', required=True,  help='Host to check')
+        self.add_argument('-u', '--username', required=True, help='Host webui username')
+        self.add_argument('-p', '--password', required=True, help='Host webui password')
+        self.add_argument('--product', required=True, help='Product name to check')
+        self.add_argument('--insecure', action='store_false', help='Do not validate HTTPS certificate')
+
+    def check_plugin_status(self):
+        self.state = NAGIOS_STATE_OK
+        self.message = '%s ' % self.args.product
+
+        device = UbntDevice(self.args.host, self.args.username, self.args.password, self.args.insecure)
+        current = device.os_version
+
+        catalog = UbntProductDownloads()
+        catalog.load()
+
+        latest = None
+        try:
+            latest = catalog.match(self.args.product).latest
+        except AttributeError:
+            self.state = NAGIOS_STATE_CRITICAL
+            self.message = 'Error looking up download links for %s' % self.args.product
+
+        if latest:
+            if latest.etcversion > current:
+                self.state = NAGIOS_STATE_WARNING
+                self.message += 'UPGRADE:%s' % current
+
+        if self.state == NAGIOS_STATE_OK and latest:
+            self.message += ' %s' % current
+
+        if latest:
+            self.message += '\n%s'% '\n'.join('%20s %s' % (k,v) for k,v in latest.items())
+
+PluginRunner().run()
