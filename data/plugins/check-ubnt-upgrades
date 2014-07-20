@@ -159,6 +159,8 @@ class UbntProductDownloads(list):
             bs = BeautifulSoup.BeautifulSoup(markup=res.content)
 
         scripts = bs.findAll('script')
+        print bs
+        return
         for script in scripts:
             try:
                 key, data = [x.strip() for x in script.text.split('=', 1)]
@@ -174,9 +176,11 @@ class UbntProductDownloads(list):
                     for product in data[family]:
                         self.append(UbntProduct(family, product, data[family][product]))
 
+            except IndexError, emsg:
+                print data
+
             except ValueError, emsg:
                 print emsg
-                pass
 
     def match(self, product):
         product = product.lower()
