@@ -40,13 +40,13 @@ class PluginRunner(NagiosPlugin):
         client = WhoisClient()
 
         self.state = NAGIOS_STATE_OK
-        self.message = '%s' % self.args.domain
+        self.message = '{0}'.format(self.args.domain)
 
         try:
             data = client.query(self.args.domain)
         except WhoisError, emsg:
             self.state = NAGIOS_STATE_CRITICAL
-            self.message += ' %s' % emsg
+            self.message += ' {0}'.format(emsg)
             return
 
         if isinstance(data.expires, date):
@@ -59,7 +59,7 @@ class PluginRunner(NagiosPlugin):
             elif self.args.warning and expire_days <= self.args.warning:
                 self.state = NAGIOS_STATE_WARNING
 
-            self.message += ' EXPIRES in %d days' % expire_days
+            self.message += ' EXPIRES in {0:d} days'.format(expire_days)
 
         else:
             self.state = NAGIOS_STATE_CRITICAL
@@ -73,7 +73,7 @@ class PluginRunner(NagiosPlugin):
 
             elif data.nameservers != nameservers:
                 self.state = NAGIOS_STATE_CRITICAL
-                self.message += ', UNEXPECTED NAMESERVERS: %s' % ','.join(nameservers)
+                self.message += ', UNEXPECTED NAMESERVERS: {0}'.format(','.join(nameservers))
 
             else:
                 self.message += ', NAMESERVERS OK'
@@ -85,6 +85,6 @@ class PluginRunner(NagiosPlugin):
             value = data[field]
             if isinstance(value, list):
                 value = ','.join(value)
-            self.message += '\n%s: %s' % (field, value)
+            self.message += '\n{0}: {1}'.format(field, value)
 
 PluginRunner().run()

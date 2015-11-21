@@ -60,19 +60,19 @@ class PluginRunner(NagiosPlugin):
     			found = False
 
     		else:
-    			self.message += '%s %s for %s found' % (self.args.server, rrtype, query)
+    			self.message += '{0} {1} for {2} found'.format(self.args.server, rrtype, query)
     			for r in response['results']:
     				if 'strings' in r.keys():
-    					self.message += '\n%s %s' % (rrtype, ' '.join(r['strings']))
+    					self.message += '\n{0} {1}'.format(rrtype, ' '.join(r['strings']))
 
     				for k in ('target', 'address',):
     					if not k in r.keys():
     						continue
-    					self.message += '\n%s %s' % (rrtype, r[k])
+    					self.message += '\n{0} {1}'.format(rrtype, r[k])
 
     	else:
     		self.state = NAGIOS_STATE_CRITICAL
-    		self.message += '%s %s for %s not found' % (self.args.server, rrtype, query)
+    		self.message += '{0} {1} for {2} not found'.format(self.args.server, rrtype, query)
 
 
 PluginRunner().run()

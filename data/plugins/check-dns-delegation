@@ -28,35 +28,35 @@ class PluginRunner(NagiosPlugin):
             self.args.nameservers = self.args.nameservers.split(',')
 
         self.state = NAGIOS_STATE_OK
-        self.message = '%s' % self.args.domain
+        self.message = '{0}'.format(self.args.domain)
 
         try:
             auth_servers = AuthorizedZoneServers(self.args.domain)
             auth_servers.update_delegations()
         except DNSError, emsg:
             self.state = NAGIOS_STATE_CRITICAL
-            self.message += ' %s' % emsg
+            self.message += ' {0}'.format(emsg)
 
         if self.args.check_soa:
             try:
                 auth_servers.validate_SOA()
             except DNSError, emsg:
                 self.state = NAGIOS_STATE_CRITICAL
-                self.message += ' SOA ERROR: %s' % emsg
+                self.message += ' SOA ERROR: {0}'.format(emsg)
 
         try:
             auth_servers.validate_NS()
         except DNSError, emsg:
             self.state = NAGIOS_STATE_CRITICAL
-            self.message += ' DELEGATED NS CONFLICT: %s' % emsg
+            self.message += ' DELEGATED NS CONFLICT: {0}'.format(emsg)
 
         delegated_ns = sorted(auth_servers.ipv4_delegation.delegated_servers)
         if self.args.nameservers:
             if delegated_ns != sorted(self.args.nameservers):
                 self.state = NAGIOS_STATE_CRITICAL
-                self.message += ' UNEXPECTED NS DELEGATION: %s' % ','.join(delegated_ns)
+                self.message += ' UNEXPECTED NS DELEGATION: {0}'.format(','.join(delegated_ns))
 
         if self.state == NAGIOS_STATE_OK:
-            self.message += ' NS %s' % ','.join(delegated_ns)
+            self.message += ' NS {0}'.format(','.join(delegated_ns))
 
 PluginRunner().run()

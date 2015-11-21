@@ -37,7 +37,7 @@ class NagiosPlugin(object):
         self.parser = Script(description=description)
 
     def __repr__(self):
-        return '%d %s' % (self.state_message, self.message)
+        return '{0:d} {1}'.format(self.state_message, self.message)
 
     def __setattr__(self, attr, value):
         if attr == 'state':
@@ -73,11 +73,11 @@ class NagiosPlugin(object):
                     break
 
         if state_code not in NAGIOS_STATES.keys():
-            raise AttributeError('Attempt to set invalid plugin state %s' % value)
+            raise AttributeError('Attempt to set invalid plugin state {0}'.format(value))
 
         # Silently ignore lowering of error state for a plugin
         if self.state_code != NAGIOS_INITIAL_STATE and self.state_code > state_code:
-            self.parser.log.debug('Silently refuse lowering state from %s to %s' % (self.state_code, state_code))
+            self.parser.log.debug('Refuse lowering state from {0} to {1}'.format(self.state_code, state_code))
             return
 
         object.__setattr__(self, 'state_code', state_code)
@@ -112,9 +112,9 @@ class NagiosPlugin(object):
             if code not in NAGIOS_STATES.keys():
                 raise ValueError
         except ValueError:
-            raise AttributeError('Invalid error code %s' % code)
+            raise AttributeError('Invalid error code {0}'.format(code))
 
-        sys.stdout.write('Error running plugin: %s\n' % message)
+        sys.stdout.write('Error running plugin: {0}\n'.format(message))
         sys.exit(code)
 
     def exit(self):
@@ -124,7 +124,7 @@ class NagiosPlugin(object):
         exit with self.state_code code
 
         """
-        sys.stdout.write('%s %s\n' % (self.state_message, self.message))
+        sys.stdout.write('{0} {1}\n'.format(self.state_message, self.message))
         sys.exit(self.state_code)
 
     def run(self):
@@ -146,7 +146,7 @@ class NagiosPlugin(object):
             self.check_plugin_status()
         except NagiosPluginError, emsg:
             self.state = 'CRITICAL'
-            self.message += '%s' % emsg
+            self.message += '{0}'.format(emsg)
 
         self.exit()
 
@@ -237,11 +237,11 @@ class NagiosSNMPPlugin(NagiosPlugin):
         try:
             res = self.client.get(oid)
         except SNMPError, emsg:
-            raise NagiosPluginError('ERROR reading OID %s: %s' % (oid, emsg))
+            raise NagiosPluginError('ERROR reading OID {0}: {1}'.format(oid, emsg))
 
         try:
-            value = '%s' % res[1]
+            value = '{0}'.format(res[1])
             self.message += value.split()[2]
             self.state = 'OK'
         except IndexError:
-            raise NagiosPluginError('Error splitting SNMP GET result %s' % res[1])
+            raise NagiosPluginError('Error splitting SNMP GET result {0}'.format(res[1]))

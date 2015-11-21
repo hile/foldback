@@ -27,7 +27,7 @@ class NFSExport(object):
 		self.flags = flags
 
 	def __repr__(self):
-		return '%s:%s' % (self.host, self.path)
+		return '{0}:{1}'.format(self.host, self.path)
 
 class PluginRunner(NagiosPlugin):
     def __init__(self):
@@ -42,7 +42,7 @@ class PluginRunner(NagiosPlugin):
             if os.path.isfile(path) and os.access(path, os.X_OK):
                 return path
 
-        raise NagiosPluginError('Command not found: %s' % showmount)
+        raise NagiosPluginError('Command not found: {0}'.format(showmount))
 
     def parse_showmount_exports(self, input):
     	exports = []
@@ -82,13 +82,13 @@ class PluginRunner(NagiosPlugin):
     		for share in required:
     			if not [x for x in exports if x.path==share]:
     				self.state = NAGIOS_STATE_CRITICAL
-    				self.message += ' missing:%s' % share
+    				self.message += ' missing:{0}'.format(share)
 
     	if self.state == NAGIOS_STATE_OK:
-    		self.message += ' total %d exported filesystems' % len(exports)
+    		self.message += ' total {0:d} exported filesystems'.format(len(exports))
 
         for e in exports:
-            self.message += '\n%s: %s' % (e.path, e.flags)
+            self.message += '\n{0}: {1}'.format(e.path, e.flags)
 
         self.message = self.message.strip()
 

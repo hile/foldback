@@ -5,30 +5,26 @@ import os
 import glob
 
 from setuptools import setup, find_packages
-
-VERSION='1.1'
-README = open(os.path.join(os.path.dirname(__file__), 'README.md'), 'r').read()
+from foldback import __version__
 
 setup(
     name = 'foldback',
-    version = VERSION,
+    version = __version__,
     license = 'PSF',
     author = 'Ilkka Tuohela',
     author_email = 'hile@iki.fi',
-    description = 'Network monitoring scripts',
-    long_description = README,
+    description = 'Network/System monitoring plugins for nagios',
     keywords = 'nagios network monitoring',
     url = 'http://tuohela.net/packages/foldback',
-    zip_safe = False,
-    packages = ( 'foldback', 'foldback/nagios' ),
+    packages = find_packages(),
     scripts = glob.glob('bin/*'),
     data_files = [
         ('data/etc/foldback', glob.glob('data/config/*.cfg')),
         ('data/lib/foldback/plugins', glob.glob('data/plugins/*')),
     ],
     install_requires = (
-        'systematic>=4.0.2',
-        'seine>=2.2',
+        'systematic>=4.4.0',
+        'seine>=3.1.0',
         'requests',
         'BeautifulSoup'
     ),

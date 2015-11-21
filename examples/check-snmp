@@ -37,18 +37,16 @@ class PluginRunner(NagiosSNMPPlugin):
 
         if self.args.warning:
             if self.args.warning < 0 or self.args.warning > 100:
-                raise NagiosPluginError('Invalid warning level value %s' % self.args.warning)
+                raise NagiosPluginError('Invalid warning level value {0}'.format(self.args.warning))
 
         if self.args.critical:
             if self.args.critical < 0 or self.args.critical > 100:
-                raise NagiosPluginError('Invalid critical level value %s' % self.args.critical)
+                raise NagiosPluginError('Invalid critical level value {0}'.format(self.args.critical))
 
         if self.args.critical and self.args.warning:
             if self.args warning >= self.args.critical:
                 raise NagiosPluginError(
-                    'Warning level must be lower than critical: %s %s' % (
-                        self.args.warning, self.args.critical
-                    )
+                    'Warning level must be lower than critical: {0} {1}'.format(self.args.warning, self.args.critical)
                 )
 
         return args
@@ -68,14 +66,14 @@ class PluginRunner(NagiosSNMPPlugin):
         #
         # We also initialize the message shown
     	self.state = NAGIOS_STATE_OK
-    	self.message = '%s' % self.args.path
+    	self.message = '{0}'.format(self.args.path9
 
         # Do here some tests
         try:
             res = self.client.get(self.args.oid)
         except SNMPError, emsg:
             self.state = NAGIOS_STATE_CRITICAL
-            self.message = 'SNMP ERROR: %s' % emsg
+            self.message = 'SNMP ERROR: {0}'.format(emsg)
 
         # self.client.get returns (oid, value) set
         try:
@@ -84,20 +82,20 @@ class PluginRunner(NagiosSNMPPlugin):
                 raise ValueError
         except ValueError:
             self.state = NAGIOS_STATE_CRITICAL
-            self.message = 'invalid:%s' % value
+            self.message = 'invalid:{0}'.format(value)
 
         if args.critical and value >= args.critical:
             self.state = NAGIOS_STATE_CRITICAL
-            self.message = 'critical:%s' % value
+            self.message = 'critical:{0}'.format(value)
 
         elif args.warning and value >= args.warning:
             self.state = NAGIOS_STATE_WARNING
-            self.message = 'warning:%s' % value
+            self.message = 'warning:{0}'.format(value)
 
         # If the tests did not change state from OK, you can add a summary
         # or something here like this
         if self.state == NAGIOS_STATE_OK:
-    	   self.message += ' value:%s' % value
+    	   self.message += ' value:{0}'.format(value)
 
 PluginRunner().run()
 

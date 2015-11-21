@@ -33,7 +33,7 @@ class PluginRunner(NagiosPlugin):
         """
     	if not os.path.isfile(self.args.path):
     		self.state = NAGIOS_STATE_CRITICAL
-    		self.message = 'No such file: %s' % self.args.path
+    		self.message = 'No such file: {0}'.format(self.args.path)
             return
 
         # This means we run the plugin and by default it is OK unless
@@ -41,7 +41,7 @@ class PluginRunner(NagiosPlugin):
         #
         # We also initialize the message shown
     	self.state = NAGIOS_STATE_OK
-    	self.message = '%s' % self.args.path
+    	self.message = '{0}'.format(self.args.path)
 
         # Do here some tests
 

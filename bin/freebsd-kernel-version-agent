@@ -1,0 +1,58 @@
+#!/usr/bin/env python
+"""
+SNMP agent to check running and installed kernel versions, updating
+every 600 seconds
+"""
+
+import os
+import re
+
+from subprocess import Popen, PIPE
+from seine.snmp.agent import SNMPAgent, Item
+
+OID_PREFIX = '1.3.6.1.4.1.2021.13.17'
+KERNEL = '/boot/kernel/kernel'
+RE_KERNEL_VERSION = re.compile('^(?P<version>[\d.]+-RELEASE-.*$)$')
+
+
+class FreeBSDTKernelVersionAgent(SNMPAgent):
+    def __init__(self):
+        super(FreeBSDTKernelVersionAgent, self).__init__(OID_PREFIX, reload_interval=600)
+
+        self.index_tree = self.register_tree('{0}.1'.format(OID_PREFIX))
+        self.versions_tree = self.register_tree('{0}.2'.format(OID_PREFIX))
+        self.names_tree = self.register_tree('{0}.3'.format(OID_PREFIX))
+
+        self.reload()
+
+    @property
+    def installed_kernel_version(self):
+        p = Popen(['strings', KERNEL], stdin=PIPE, stdout=PIPE, stderr=PIPE)
+        stdout, stderr = p.communicate()
+        if p.returncode != 0:
+            return 'error parsing {0}'.format(KERNEL)
+
+        for line in stdout.splitlines():
+            m = RE_KERNEL_VERSION.match(line)
+            if m:
+                return m.groupdict()['version']
+
+        return 'not found in {0}'.format(KERNEL)
+
+    def reload(self):
+        self.clear()
+
+        self.index_tree.add_values('integer', [1])
+        self.versions_tree.add_values('string', [os.uname()[2]])
+        self.names_tree.add_values('string', ['Running kernel version'])
+
+        self.index_tree.add_values('integer', [2])
+        self.versions_tree.add_values('string', [self.installed_kernel_version])
+        self.names_tree.add_values('string', ['Installed kernel version'])
+
+        self.index_tree.add_values('integer', [3])
+        self.versions_tree.add_values('string', [KERNEL])
+        self.names_tree.add_values('string', ['Kernel path'])
+
+FreeBSDTKernelVersionAgent().run()
+

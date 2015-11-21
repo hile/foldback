@@ -41,11 +41,11 @@ class PluginRunner(NagiosPlugin):
                 alias, emails = [x.strip() for x in l.split(':', 1)]
                 emails = sorted(x.strip() for x in emails.split(','))
             except ValueError:
-                raise NagiosPluginError('Error parsing line %s' % l)
+                raise NagiosPluginError('Error parsing line {0}'.format(l))
 
             if alias in aliases.keys():
                 self.state = NAGIOS_STATE_WARNING
-                self.message += ' duplicate:%s' % alias
+                self.message += ' duplicate:{0}'.format(alias)
 
             aliases[alias] = emails
 
@@ -54,10 +54,10 @@ class PluginRunner(NagiosPlugin):
     def check_plugin_status(self):
     	if not os.path.isfile(self.args.path):
     		self.state = NAGIOS_STATE_CRITICAL
-    		self.message = 'No such file: %s' % self.args.path
+    		self.message = 'No such file: {0}'.format(self.args.path)
 
     	self.state = NAGIOS_STATE_OK
-    	self.message = '%s' % self.args.path
+    	self.message = '{0}'.format(self.args.path)
 
     	aliases = self.load_aliases()
 
@@ -72,7 +72,7 @@ class PluginRunner(NagiosPlugin):
             for alias in required:
                 if alias not in aliases.keys():
                     self.state = NAGIOS_STATE_CRITICAL
-                    self.message += ' missing:%s' % alias
+                    self.message += ' missing:{0}'.format(alias)
 
         if self.args.check_alias:
             checked = {}
@@ -81,21 +81,21 @@ class PluginRunner(NagiosPlugin):
                     alias,emails = x.split(':',1)
                     emails = [x.strip() for x in emails.split(',')]
                 except ValueError:
-                    raise NagiosPluginError('Error parsing --check-value %s' % x)
+                    raise NagiosPluginError('Error parsing --check-value {0}'.format(x))
                 checked[alias] = sorted(emails)
 
             for alias, emails in checked.items():
                 if alias not in aliases.keys():
                     self.state = NAGIOS_STATE_CRITICAL
-                    self.message += ' missing:%s' % alias
+                    self.message += ' missing:{0}'.format(alias)
 
                 if aliases[alias] != emails:
                     self.state = NAGIOS_STATE_CRITICAL
-                    self.message += ' invalid:%s:%s' % (alias,','.join(aliases[alias]))
+                    self.message += ' invalid:{0}:{1}'.format(alias,','.join(aliases[alias]))
 
 
         if self.state == NAGIOS_STATE_OK:
-    	   self.message += ' (total %d mail aliases)' % len(aliases.keys())
+    	   self.message += ' (total {0:d} mail aliases)'.format(len(aliases.keys()))
 
 
 PluginRunner().run()

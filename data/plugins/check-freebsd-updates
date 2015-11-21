@@ -41,7 +41,7 @@ class FreeBSDReleaseLink(object):
 
     def __cmp__(self, other):
         if not isinstance(other, FreeBSDReleaseLink):
-            raise NotImplementedError('Invalid link: %s' % self.link)
+            raise NotImplementedError('Invalid link: {0}'.format(self.link))
 
         for attr in ('major', 'minor', 'version'):
             if getattr(self,attr) != getattr(other, attr):
@@ -69,7 +69,7 @@ class FreeBSDReleaseLink(object):
         return self.__cmp__(other) >= 0
 
     def __repr__(self):
-        return '%s.%s-%s' % (self.major, self.minor, self.version)
+        return '{0}.{1}-{2}'.format(self.major, self.minor, self.version)
 
     @property
     def is_prerelease(self):
@@ -86,7 +86,7 @@ class PluginRunner(NagiosSNMPPlugin):
 
     def check_plugin_status(self):
         def fetch_available_versions():
-            url = 'http://%s/' % random.choice(SERVER_CHOICES)
+            url = 'http://{0}/'.format(random.choice(SERVER_CHOICES))
             res = requests.get(url)
             page = BeautifulSoup.BeautifulSoup(markup=res.content)
 
@@ -101,21 +101,21 @@ class PluginRunner(NagiosSNMPPlugin):
         try:
             res = self.client.get(SYSDESCR_OID)
         except SNMPError, emsg:
-            raise NagiosPluginError('ERROR reading OID %s: %s' % (SYSDESCR_OID, emsg))
+            raise NagiosPluginError('ERROR reading OID {0}: {1}'.format(SYSDESCR_OID, emsg))
 
         try:
-            value = '%s' % res[1]
+            value = '{0}'.format(res[1])
             current = FreeBSDReleaseLink(value.split()[2])
         except IndexError:
-            raise NagiosPluginError('Error splitting SNMP GET result %s' % res[1])
+            raise NagiosPluginError('Error splitting SNMP GET result {0}'.format(res[1]))
 
         if not current.is_valid:
             self.state = 'CRITICAL'
-            self.message += 'Unsupported version string: %s\n' % current.link
+            self.message += 'Unsupported version string: {0}\n'.format(current.link)
             self.exit()
 
         self.state = NAGIOS_STATE_OK
-        self.message = 'FreeBSD %s' % (current)
+        self.message = 'FreeBSD {0}'.format(current)
 
         versions = fetch_available_versions()
         for v in reversed(versions):
@@ -128,7 +128,7 @@ class PluginRunner(NagiosSNMPPlugin):
                 continue
 
             if current < v:
-                self.message += ': update available: %s' % v
+                self.message += ': update available: {0}'.format(v)
                 self.state = NAGIOS_STATE_WARNING
                 break
 

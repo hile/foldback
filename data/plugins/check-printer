@@ -67,7 +67,7 @@ class PluginRunner(NagiosSNMPPlugin):
             elif self.args.warning and details['percent'] <= self.args.warning:
                 self.state = NAGIOS_STATE_WARNING
 
-            self.message += ' %s:%s%%' % (item, details['percent'])
+            self.message += ' {0}:{1}%'.format(item, details['percent'])
 
 PluginRunner().run()
 

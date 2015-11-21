@@ -12,11 +12,11 @@ from seine.snmp.agent import SNMPAgent, Item
 OID_PREFIX = '1.3.6.1.4.1.2021.13.16'
 class FreeBSDTemperaturesMonitorAgent(SNMPAgent):
     def __init__(self):
-        SNMPAgent.__init__(self, OID_PREFIX, reload_interval=30)
+        super(FreeBSDTemperaturesMonitorAgent, self).__init__(OID_PREFIX, reload_interval=30)
 
-        self.index_tree = self.register_tree('%s.2.1.1' % OID_PREFIX)
-        self.names_tree = self.register_tree('%s.2.1.2' % OID_PREFIX)
-        self.value_tree = self.register_tree('%s.2.1.3' % OID_PREFIX)
+        self.index_tree = self.register_tree('{0}.2.1.1'.format(OID_PREFIX))
+        self.names_tree = self.register_tree('{0}.2.1.2'.format(OID_PREFIX))
+        self.value_tree = self.register_tree('{0}.2.1.3'.format(OID_PREFIX))
 
         self.reload()
 
@@ -25,7 +25,7 @@ class FreeBSDTemperaturesMonitorAgent(SNMPAgent):
         stdout, stderr = p.communicate()
 
         if p.returncode != 0:
-            self.log.debug('ERROR reading CPU temperatures: %s' % stderr)
+            self.log.debug('ERROR reading CPU temperatures: {0}'.format(stderr))
             return
 
         for line in stdout.split('\n'):
@@ -42,7 +42,7 @@ class FreeBSDTemperaturesMonitorAgent(SNMPAgent):
                 value = int(float(value.rstrip('C')) * 1000)
 
                 self.index_tree.add_values('integer', [self.sensor_index])
-                self.names_tree.add_values('string', ['CPU Core %d' % index])
+                self.names_tree.add_values('string', ['CPU Core {0:d}'.format(index)])
                 self.value_tree.add_values('gauge', [value])
                 self.sensor_index += 1
 
@@ -54,7 +54,7 @@ class FreeBSDTemperaturesMonitorAgent(SNMPAgent):
         stdout, stderr = p.communicate()
 
         if p.returncode != 0:
-            self.log.debug('ERROR reading ACPI thermal temperatures: %s' % stderr)
+            self.log.debug('ERROR reading ACPI thermal temperatures: {0}'.format(stderr))
             return
 
         for line in stdout.split('\n'):
@@ -71,7 +71,7 @@ class FreeBSDTemperaturesMonitorAgent(SNMPAgent):
                 value = int(float(value.rstrip('C')) * 1000)
 
                 self.index_tree.add_values('integer', [self.sensor_index])
-                self.names_tree.add_values('string', ['ACPI TZ %d' % index])
+                self.names_tree.add_values('string', ['ACPI TZ {0:d}'.format(index)])
                 self.value_tree.add_values('gauge', [value])
                 self.sensor_index += 1
             except ValueError, emsg:
@@ -83,6 +83,5 @@ class FreeBSDTemperaturesMonitorAgent(SNMPAgent):
         self.load_cpu_temperatures()
         self.load_acpi_thermal_temperatures()
 
-agent = FreeBSDTemperaturesMonitorAgent()
-agent.run()
+FreeBSDTemperaturesMonitorAgent().run()
 

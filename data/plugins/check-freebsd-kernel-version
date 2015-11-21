@@ -1,0 +1,43 @@
+#!/usr/bin/env python
+"""
+Check freebsd kernel version
+"""
+
+import os
+from pkg_resources import parse_version
+
+from foldback.nagios.plugin import NagiosSNMPPlugin, NagiosPluginError
+from foldback.nagios.plugin import NAGIOS_STATE_OK, NAGIOS_STATE_WARNING, NAGIOS_STATE_CRITICAL
+
+OID_RUNNING = '.1.3.6.1.4.1.2021.13.17.2.1'
+OID_KERNEL_VERSION = '.1.3.6.1.4.1.2021.13.17.2.2'
+OID_KERNEL_PATH = '.1.3.6.1.4.1.2021.13.17.2.3'
+
+DESCRIPTION = """Check FreeBSD kernel upgrade status
+
+Check if FreeBSD kernel has been upgraded but host is not yet rebooted.
+
+"""
+
+class PluginRunner(NagiosSNMPPlugin):
+    def __init__(self):
+        super(PluginRunner, self).__init__(description=DESCRIPTION)
+
+    def check_plugin_status(self):
+        """Check kernel upgrade status
+
+        """
+
+        self.state = NAGIOS_STATE_OK
+        self.message = ''
+
+        running_version = '{0}'.format(self.client.get(OID_RUNNING)[1])
+        kernel_version = '{0}'.format(self.client.get(OID_KERNEL_VERSION)[1])
+        kernel_path = '{0}'.format(self.client.get(OID_KERNEL_PATH)[1])
+
+        if parse_version(running_version) < parse_version(kernel_version):
+            self.state = NAGIOS_STATE_WARNING
+        self.message += 'running kernel {0}, {1} is {2}'.format(running_version, kernel_path, kernel_version)
+
+PluginRunner().run()
+

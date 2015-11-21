@@ -53,7 +53,7 @@ class SDKVersion(dict):
             del(self['time'])
 
         try:
-            self['url'] = '%s%s' % (PRODUCT_ROOT_URL, self['file'].lstrip('./'))
+            self['url'] = '{0}{1}'.format(PRODUCT_ROOT_URL, self['file'].lstrip('./'))
         except ValueError:
             self['url'] = 'unknown'
 
