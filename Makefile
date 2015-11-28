@@ -40,6 +40,6 @@ package: clean
 	tar -zcf ../releases/$(PACKAGE)/$(PACKAGE)-$(VERSION).tar.gz --exclude=.git --exclude=.gitignore --exclude=*.swp --exclude=*.pyc $(PACKAGE)-$(VERSION)
 	rm -rf $(PACKAGE)-$(VERSION)
 
-ster:
+register:
 	python setup.py register sdist upload
 
