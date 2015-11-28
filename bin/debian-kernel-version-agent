@@ -1,0 +1,64 @@
+#!/usr/bin/env python
+"""
+SNMP agent to check running and installed kernel versions, updating
+every 600 seconds
+"""
+
+import glob
+import os
+import re
+from pkg_resources import parse_version
+
+from seine.snmp.agent import SNMPAgent, Item
+
+OID_PREFIX = '1.3.6.1.4.1.2021.13.17'
+
+KERNEL_GLOB = '/boot/vmlinuz-*'
+RE_KERNEL_VERSION = re.compile('^vmlinuz-(?P<version>.*)$')
+
+class DebianKernelVersionAgent(SNMPAgent):
+    def __init__(self):
+        super(DebianKernelVersionAgent, self).__init__(OID_PREFIX, reload_interval=600)
+
+        self.index_tree = self.register_tree('{0}.1'.format(OID_PREFIX))
+        self.versions_tree = self.register_tree('{0}.2'.format(OID_PREFIX))
+        self.names_tree = self.register_tree('{0}.3'.format(OID_PREFIX))
+
+        self.reload()
+
+    def latest_installed_kernel_version(self):
+        latest_version = None
+        latest_path = None
+        latest_kernel = ''
+        for path in glob.glob(KERNEL_GLOB):
+            m = RE_KERNEL_VERSION.match(os.path.basename(path))
+            if not m:
+                continue
+
+            version = parse_version(m.groupdict()['version'])
+            if latest_version is None or latest_version < version:
+                latest_version = version
+                latest_kernel = m.groupdict()['version']
+                latest_path = path
+
+        return path, latest_kernel
+
+    def reload(self):
+        self.clear()
+
+        path, latest_kernel = self.latest_installed_kernel_version()
+
+        self.index_tree.add_values('integer', [1])
+        self.versions_tree.add_values('string', [os.uname()[2]])
+        self.names_tree.add_values('string', ['Running kernel version'])
+
+        self.index_tree.add_values('integer', [2])
+        self.versions_tree.add_values('string', [latest_kernel])
+        self.names_tree.add_values('string', ['Installed kernel version'])
+
+        self.index_tree.add_values('integer', [3])
+        self.versions_tree.add_values('string', [path])
+        self.names_tree.add_values('string', ['Kernel path'])
+
+DebianKernelVersionAgent().run()
+
