@@ -21,13 +21,13 @@ or is unreachable.
 """
 
 class NFSExport(object):
-	def __init__(self, host, path, flags):
-		self.host = host
-		self.path = path
-		self.flags = flags
+    def __init__(self, host, path, flags):
+        self.host = host
+        self.path = path
+        self.flags = flags
 
-	def __repr__(self):
-		return '{0}:{1}'.format(self.host, self.path)
+    def __repr__(self):
+        return '{0}:{1}'.format(self.host, self.path)
 
 class PluginRunner(NagiosPlugin):
     def __init__(self):
@@ -45,47 +45,54 @@ class PluginRunner(NagiosPlugin):
         raise NagiosPluginError('Command not found: {0}'.format(showmount))
 
     def parse_showmount_exports(self, input):
-    	exports = []
-    	for line in [l.strip() for l in input.split('\n')[1:]]:
-    		if line == '' or line.startswith('#'):
-    			continue
-    		mountpoint, flags = [x.strip() for x in line.split(None, 1)]
-    		exports.append(NFSExport(self.args.host, mountpoint, flags))
-    	return exports
+        exports = []
+        for line in [l.strip() for l in input.split('\n')[1:]]:
+            if line == '' or line.startswith('#'):
+                continue
+            mountpoint, flags = [x.strip() for x in line.split(None, 1)]
+            exports.append(NFSExport(self.args.host, mountpoint, flags))
+        return exports
 
     def check_plugin_status(self):
-    	self.state = NAGIOS_STATE_OK
-    	self.message = ''
+        self.state = NAGIOS_STATE_OK
+        self.message = ''
 
         showmount = self.find_showmount_command()
-    	cmd = [showmount, '-e']
-    	if self.args.nfsv3:
-    		cmd.append('-3')
-    	if self.args.ipv6:
-    		cmd.append('-6')
-    	cmd.append(self.args.host)
-    	p = Popen(cmd,stdin=PIPE, stdout=PIPE, stderr=PIPE)
-    	(stdout, stderr) = p.communicate()
-    	if p.returncode != 0:
-    		self.state = NAGIOS_STATE_CRITICAL
-    		self.message += 'ERROR checking NFS share status'
+        cmd = [showmount, '-e']
+        if self.args.nfsv3:
+            cmd.append('-3')
+        if self.args.ipv6:
+            cmd.append('-6')
+        cmd.append(self.args.host)
 
-    	exports = self.parse_showmount_exports(stdout)
+        p = Popen(cmd,stdin=PIPE, stdout=PIPE, stderr=PIPE)
+        (stdout, stderr) = p.communicate()
+        if p.returncode != 0:
+            self.state = NAGIOS_STATE_CRITICAL
+            self.message += 'ERROR checking NFS share status: returns {0}'.format(p.returncode)
+            stdout = stdout.strip()
+            stderr = stderr.strip()
+            if stdout:
+                self.message += '\n{0}'.format(stdout)
+            if stderr:
+                self.message += '\n{0}'.format(stderr)
 
-    	if self.args.required:
-    		required = []
-    		for x in self.args.required:
-    			for share in x.split(','):
-    				if share not in required:
-    					required.append(share)
+        exports = self.parse_showmount_exports(stdout)
 
-    		for share in required:
-    			if not [x for x in exports if x.path==share]:
-    				self.state = NAGIOS_STATE_CRITICAL
-    				self.message += ' missing:{0}'.format(share)
+        if self.args.required:
+            required = []
+            for x in self.args.required:
+                for share in x.split(','):
+                    if share not in required:
+                        required.append(share)
 
-    	if self.state == NAGIOS_STATE_OK:
-    		self.message += ' total {0:d} exported filesystems'.format(len(exports))
+            for share in required:
+                if not [x for x in exports if x.path==share]:
+                    self.state = NAGIOS_STATE_CRITICAL
+                    self.message += ' missing:{0}'.format(share)
+
+        if self.state == NAGIOS_STATE_OK:
+            self.message += ' total {0:d} exported filesystems'.format(len(exports))
 
         for e in exports:
             self.message += '\n{0}: {1}'.format(e.path, e.flags)
@@ -93,3 +100,4 @@ class PluginRunner(NagiosPlugin):
         self.message = self.message.strip()
 
 PluginRunner().run()
+
