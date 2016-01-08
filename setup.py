@@ -23,8 +23,8 @@ setup(
         ('data/lib/foldback/plugins', glob.glob('data/plugins/*')),
     ],
     install_requires = (
-        'systematic>=4.4.0',
-        'seine>=3.1.0',
+        'systematic>=4.4.1',
+        'seine>=3.2.0',
         'requests',
         'BeautifulSoup'
     ),
