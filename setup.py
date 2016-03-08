@@ -17,10 +17,10 @@ setup(
     keywords = 'nagios network monitoring',
     url = 'http://tuohela.net/packages/foldback',
     packages = find_packages(),
-    scripts = glob.glob('bin/*'),
     data_files = [
-        ('data/etc/foldback', glob.glob('data/config/*.cfg')),
-        ('data/lib/foldback/plugins', glob.glob('data/plugins/*')),
+        ('share/foldback', glob.glob('data/config/*.cfg')),
+        ('lib/foldback/agents', glob.glob('data/agents/*')),
+        ('lib/foldback/plugins', glob.glob('data/plugins/*')),
     ],
     install_requires = (
         'systematic>=4.4.1',
