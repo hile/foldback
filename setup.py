@@ -18,7 +18,7 @@ setup(
     url = 'http://tuohela.net/packages/foldback',
     packages = find_packages(),
     data_files = [
-        ('share/foldback', glob.glob('data/config/*.cfg')),
+        ('share/foldback', glob.glob('data/share/*.cfg')),
         ('lib/foldback/agents', glob.glob('data/agents/*')),
         ('lib/foldback/plugins', glob.glob('data/plugins/*')),
     ],
