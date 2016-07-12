@@ -8,7 +8,7 @@ clean:
 	@find . -name '*.pyc' -print0|xargs -0 rm -rf
 
 build:
-	python setup.py build
+	python setup.py build sdist bdist_wheel
 
 ifdef PREFIX
 install_modules: build
@@ -19,6 +19,10 @@ install_modules: build
 	python setup.py install
 install: install_modules
 endif
+
+register-test:
+	python setup.py sdist
+	python setup.py register -r test sdist upload
 
 register:
 	python setup.py register sdist upload

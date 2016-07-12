@@ -1,0 +1,4 @@
+include README.md
+recursive-include data/agents *
+recursive-include data/plugins *
+recursive-include data/share *
