@@ -1,0 +1,82 @@
+#!/usr/bin/env python
+DESCRIPTION = """Check S.M.A.R.T. status
+
+Check drive S.M.A.R.T. status with smartctl commands.
+
+Requires smartmontools to be installed.
+"""
+
+import os
+
+from foldback.nagios.plugin import NagiosPlugin, NagiosPluginError
+from foldback.nagios.plugin import NAGIOS_STATE_OK, NAGIOS_STATE_WARNING, NAGIOS_STATE_CRITICAL
+from systematic.smart import SmartCtlClient, SmartError
+
+class PluginRunner(NagiosPlugin):
+    def __init__(self):
+        NagiosPlugin.__init__(self, description=DESCRIPTION)
+        self.add_argument('-h', '--hours', type=int, help='Drives max running hours')
+        self.add_argument('-d', '--drives', action='append', help='Drives to check')
+        self.client = SmartCtlClient()
+
+    def check_drive(self, device):
+        """Check drive status
+
+        """
+
+        drive = self.client.find_drive(device)
+        details = ''
+
+        if drive is not None:
+            if drive.is_healthy:
+                self.message += '{0} OK'.format(drive)
+
+            info = drive.get_info()
+            attributes = drive.get_attributes()
+
+            details = '{0} {1} {2}, {3} GB'.format(
+                drive.device,
+                info['Device model'].value,
+                info['Serial number'].value,
+                info['User capacity'].value / 1000 / 1000 / 1000,
+            )
+
+            try:
+                hours = attributes['power_on_hours']
+            except KeyError:
+                self.state = NAGIOS_STATE_WARNING
+                details += 'power on hours attribute not detected'
+            details += ', running {0} hours'.format(hours['raw_value'])
+
+            if self.args.hours is not None:
+                if hours['raw_value'] >= self.args.hours:
+                    self.state = NAGIOS_STATE_WARNING
+                    self.message += ' WARN {0} running hours'.format(hours['raw_value'])
+
+        else:
+            self.state = NAGIOS_STATE_CRITICAL
+            self.message += '{0} NOT FOUND'.format(device)
+
+        self.message += ', '
+        self.details.append(details)
+
+    def check_plugin_status(self):
+
+        self.client.scan()
+        self.state = NAGIOS_STATE_OK
+        self.message = ''
+        self.details = []
+
+        if self.args.drives:
+
+            for drive in self.args.drives:
+                self.check_drive(drive)
+
+        else:
+            for drive in self.client.drives:
+                self.check_drive(drive)
+
+        self.message = self.message.rstrip(', ')
+        self.message += '\n{0}'.format('\n'.join(self.details))
+
+PluginRunner().run()
