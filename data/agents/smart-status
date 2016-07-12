@@ -40,7 +40,7 @@ class SmartStatusMonitorAgent(SNMPAgent):
             info = drive.get_info()
             self.model_tree.add_values('string', [info['Device model'].value])
             self.serial_tree.add_values('string', [info['Serial number'].value])
-            self.size_tree.add_values('integer', [info['User capacity'].value])
+            self.size_tree.add_values('integer', [info['User capacity'].value / 1000 / 1000 / 1000])
 
             attributes = drive.get_attributes()
             try:
