@@ -1,4 +1,22 @@
 #!/usr/bin/env python
+
+import re
+import random
+import requests
+import BeautifulSoup
+
+from foldback.nagios.plugin import NagiosSNMPPlugin, NagiosPluginError
+from foldback.nagios.plugin import NAGIOS_STATE_OK, NAGIOS_STATE_WARNING, NAGIOS_STATE_CRITICAL
+
+OID_INDEX = '.1.3.6.1.4.1.2021.13.18.2.1.1'
+OID_DEVICE = '.1.3.6.1.4.1.2021.13.18.2.1.2'
+OID_MODEL = '.1.3.6.1.4.1.2021.13.18.2.1.3'
+OID_SERIAL = '.1.3.6.1.4.1.2021.13.18.2.1.4'
+OID_SIZE = '.1.3.6.1.4.1.2021.13.18.2.1.5'
+OID_HEALTH = '.1.3.6.1.4.1.2021.13.18.2.1.6'
+OID_HOURS = '.1.3.6.1.4.1.2021.13.18.2.1.7'
+
+
 DESCRIPTION = """Check S.M.A.R.T. status
 
 Check drive S.M.A.R.T. status with smartctl commands.
@@ -8,16 +26,38 @@ Requires smartmontools to be installed.
 
 import os
 
-from foldback.nagios.plugin import NagiosPlugin, NagiosPluginError
-from foldback.nagios.plugin import NAGIOS_STATE_OK, NAGIOS_STATE_WARNING, NAGIOS_STATE_CRITICAL
-from systematic.smart import SmartCtlClient, SmartError
 
-class PluginRunner(NagiosPlugin):
+class Drive(object):
+    def __init__(self, plugin, index, device):
+        self.plugin = plugin
+        self.index = index
+        self.device = device
+
+    def __cmp__(self, other):
+        if isinstance(other, basestring):
+            return cmp(self.device, other)
+        if isinstance(other, Drive):
+            return cmp(self.index, other.index)
+        return 0
+
+    def __repr__(self):
+        return '{0} {1}'.format(self.index, self.device)
+
+    @property
+    def is_healthy(self):
+        value = self.plugin.client.get('{0}.{1}'.format(OID_HEALTH, self.index))[1]
+        return value == 'HEALTHY'
+
+    @property
+    def power_on_hours(self):
+        return self.plugin.client.get('{0}.{1}'.format(OID_HOURS, self.index))[1]
+
+
+class PluginRunner(NagiosSNMPPlugin):
     def __init__(self):
-        NagiosPlugin.__init__(self, description=DESCRIPTION)
+        super(PluginRunner, self).__init__(description=DESCRIPTION)
         self.add_argument('-h', '--hours', type=int, help='Drives max running hours')
         self.add_argument('-d', '--drives', action='append', help='Drives to check')
-        self.client = SmartCtlClient()
 
     def check_drive(self, device):
         """Check drive status
@@ -61,22 +101,40 @@ class PluginRunner(NagiosPlugin):
         self.details.append(details)
 
     def check_plugin_status(self):
+        """Check smart status
 
-        self.client.scan()
+        """
+
         self.state = NAGIOS_STATE_OK
-        self.message = ''
         self.details = []
+        self.message = ''
 
-        if self.args.drives:
+        self.drives = []
+        for oid, device in self.client.walk(OID_DEVICE).items():
+            self.drives.append(Drive(self, oid.split('.')[-1], '{0}'.format(device)))
+        self.drives.sort()
 
-            for drive in self.args.drives:
-                self.check_drive(drive)
+        for drive in self.drives:
+            if self.args.drives and drive not in self.args.drives:
+                continue
 
-        else:
-            for drive in self.client.drives:
-                self.check_drive(drive)
+            self.message += '{0}'.format(drive.device)
+            if drive.is_healthy:
+                self.message += ' OK'
+            else:
+                self.state = NAGIOS_STATE_CRITICAL
+                self.message += ' FAILED'
+
+            if self.args.hours:
+                hours = drive.power_on_hours
+                if hours >= self.args.hours:
+                    self.state = NAGIOS_STATE_WARNING
+                    self.message += ', WARN running {0} hours'.format(hours)
+                else:
+                    self.message += ', running {0} hours'.format(hours)
+
+            self.message += ', '
 
         self.message = self.message.rstrip(', ')
-        self.message += '\n{0}'.format('\n'.join(self.details))
 
 PluginRunner().run()
