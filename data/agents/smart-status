@@ -26,6 +26,11 @@ class SmartStatusMonitorAgent(SNMPAgent):
         self.health_tree = self.register_tree('{0}.2.1.6'.format(OID_PREFIX))
         self.hours_tree = self.register_tree('{0}.2.1.7'.format(OID_PREFIX))
         self.temperature_tree = self.register_tree('{0}.2.1.8'.format(OID_PREFIX))
+        self.power_cycles_tree = self.register_tree('{0}.2.1.9'.format(OID_PREFIX))
+        self.reallocated_sectors_tree = self.register_tree('{0}.2.1.10'.format(OID_PREFIX))
+        self.crc_errors_tree = self.register_tree('{0}.2.1.11'.format(OID_PREFIX))
+        self.wear_levelings_tree = self.register_tree('{0}.2.1.12'.format(OID_PREFIX))
+        self.total_lbas_written_tree = self.register_tree('{0}.2.1.13'.format(OID_PREFIX))
 
         self.client = SmartCtlClient()
         self.reload()
@@ -59,6 +64,46 @@ class SmartStatusMonitorAgent(SNMPAgent):
                     pass
                 except KeyError:
                     pass
+
+            try:
+                power_cycles = int(attributes['power_cycle_count']['raw_value'])
+                self.power_cycles_tree.add_values('integer', [power_cycles])
+            except ValueError:
+                self.power_cycles_tree.add_values('integer', [-1])
+            except KeyError:
+                self.power_cycles_tree.add_values('integer', [-1])
+
+            try:
+                reallocated = int(attributes['reallocated_sector_ct']['raw_value'])
+                self.reallocated_sectors_tree.add_values('integer', [reallocated])
+            except ValueError:
+                self.reallocated_sectors_tree.add_values('integer', [-1])
+            except KeyError:
+                self.reallocated_sectors_tree.add_values('integer', [-1])
+
+            try:
+                crc_errors = int(attributes['crc_error_count']['raw_value'])
+                self.crc_errors_tree.add_values('integer', [crc_errors])
+            except ValueError:
+                self.crc_errors_tree.add_values('integer', [-1])
+            except KeyError:
+                self.crc_errors_tree.add_values('integer', [-1])
+
+            try:
+                wear_levelings = int(attributes['wear_leveling_count']['raw_value'])
+                self.wear_levelings_tree.add_values('integer', [wear_levelings])
+            except ValueError:
+                self.wear_levelings_tree.add_values('integer', [-1])
+            except KeyError:
+                self.wear_levelings_tree.add_values('integer', [-1])
+
+            try:
+                lbas_written = int(attributes['total_lbas_written']['raw_value'])
+                self.total_lbas_written_tree.add_values('integer', [lbas_written])
+            except ValueError:
+                self.total_lbas_written_tree.add_values('integer', [-1])
+            except KeyError:
+                self.total_lbas_written_tree.add_values('integer', [-1])
 
             self.drive_index += 1
 
