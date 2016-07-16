@@ -25,6 +25,7 @@ class SmartStatusMonitorAgent(SNMPAgent):
         self.size_tree = self.register_tree('{0}.2.1.5'.format(OID_PREFIX))
         self.health_tree = self.register_tree('{0}.2.1.6'.format(OID_PREFIX))
         self.hours_tree = self.register_tree('{0}.2.1.7'.format(OID_PREFIX))
+        self.temperature_tree = self.register_tree('{0}.2.1.8'.format(OID_PREFIX))
 
         self.client = SmartCtlClient()
         self.reload()
@@ -48,6 +49,16 @@ class SmartStatusMonitorAgent(SNMPAgent):
             except KeyError:
                 hours = -1
             self.hours_tree.add_values('integer', [hours['raw_value']])
+
+            for attr in ( 'temperature_celsius',  'airflow_temperature_cel', ):
+                try:
+                    temperature = int(attributes[attr]['raw_value'])
+                    self.temperature_tree.add_values('integer', [temperature])
+                    break
+                except ValueError:
+                    pass
+                except KeyError:
+                    pass
 
             self.drive_index += 1
 
