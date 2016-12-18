@@ -39,16 +39,23 @@ class SmartStatusMonitorAgent(SNMPAgent):
         self.client.scan()
 
         for drive in self.client.drives:
+
+            info = drive.get_info()
+            if not info:
+                continue
+
+            attributes = drive.get_attributes()
+            if not attributes:
+                continue
+
             self.index_tree.add_values('integer', [self.drive_index])
             self.names_tree.add_values('string', ['{0}'.format(drive.device)])
             self.health_tree.add_values('string', ['{0}'.format(drive.is_healthy and 'HEALTHY' or 'ERROR' )])
 
-            info = drive.get_info()
             self.model_tree.add_values('string', [info['Device model'].value])
             self.serial_tree.add_values('string', [info['Serial number'].value])
             self.size_tree.add_values('integer', [info['User capacity'].value / 1000 / 1000 / 1000])
 
-            attributes = drive.get_attributes()
             try:
                 hours = attributes['power_on_hours']
             except KeyError:
