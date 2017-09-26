@@ -33,6 +33,7 @@ Example from a FreeBSD host:
 ```
 pass_persist 1.3.6.1.4.1.2021.13.16 /usr/lib/foldback/agents/freebsd-temperatures
 pass_persist 1.3.6.1.4.1.2021.13.17 /usr/lib/foldback/agents/freebsd-kernel
+pass_persist 1.3.6.1.4.1.2021.13.18 /usr/lib/foldback/agents/smart-status
 ```
 
 See the agent or plugin for expected prefixes to configure in snmpd.conf.
