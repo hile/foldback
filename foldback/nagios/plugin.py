@@ -37,7 +37,7 @@ class NagiosPlugin(object):
         self.parser = Script(description=description)
 
     def __repr__(self):
-        return '{0:d} {1}'.format(self.state_message, self.message)
+        return '{0} {1}'.format(self.state_message, self.message)
 
     def __setattr__(self, attr, value):
         if attr == 'state':
